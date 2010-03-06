@@ -1,80 +1,224 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <head>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
+		<meta http-equiv="content-style-type" content="text/css"/>
+		<meta http-equiv="content-script-type" content="text/javascript"/>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<meta name="description" content="Melbourne - Ruby source ode to AST" />
+  	<meta name="keywords" content="ruby, ruby on rails, ast, introspection, static analysis, oss" />
+		<meta name="language" content="en"/>
+		<meta name="content-language" content="en"/>
+		<meta name="publisher" content="Marco Otte-Witte" />
+		<meta name="author" content="Marco Otte-Witte - http://simplabs.com" />
+		<title>Melbourne - Ruby source code to AST</title>
+    <link rel="shortcut icon" type="image/x-icon" href="http://simplabs.com/simplabs.ico" />
+		<link rel="alternate" type="application/rss+xml" title="RSS" href="{RSS}"/>
+		<style type="text/css" media="screen">
+		  /******************************************************************************
+          GENERAL STYLES
+       ******************************************************************************/
 
-	<title>simplabs/melbourne @ GitHub</title>
-	
-	<style type="text/css">
-		body {
-  		margin-top: 1.0em;
-  		background-color: #809702;
-		  font-family: "Helvetica,Arial,FreeSans";
-  		color: #ffffff;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-		h1 { font-size: 3.8em; color: #7f68fd; margin-bottom: 3px; }
-		h1 .small { font-size: 0.4em; }
-		h1 a { text-decoration: none }
-		h2 { font-size: 1.5em; color: #7f68fd; }
-    h3 { text-align: center; color: #7f68fd; }
-    a { color: #7f68fd; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-	</style>
-	
-</head>
+      body {
+        font-family: "Lucida Grande", "Lucida Sans Unicode", Arial, sans-serif;
+        line-height: 150%;
+        background-color: #eee;
+        color: #000;
+      }
 
-<body>
-  <a href="http://github.com/simplabs/melbourne"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+      a {
+        color: #000;
+        background-color: #ddd;
+        text-decoration: none;
+        padding: 0 2px 0 2px;
+      }
 
-  <div id="container">
+      a:active, a:hover, a.active {
+        color: #fff;
+        background-color: #222;
+      }
+      
+      h3 a, h3 a:active, h3 a:hover, h4 a, h4 a:active, h4 a:hover {
+        color: #000;
+        background-color: #fff;
+        text-decoration: none;
+      }
 
-    <div class="download">
-      <a href="http://github.com/simplabs/melbourne/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/simplabs/melbourne/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
+      strong {
+        background-color: #fffebb;
+        padding: 0 2px 0 2px;
+        font-weight: normal;
+      }
+      
+      h3 {
+        margin: 0 0 30px 0;
+        padding: 0 0 5px 0;
+        font-size: 1.7em;
+      }
+
+			pre {
+				line-height: 120%;
+			}
+
+
+      /******************************************************************************
+          REUSED STYLES
+       ******************************************************************************/
+
+      div.blocker {
+      	font-size: 1px;
+      	clear: both;
+      	height: 0;
+      }
+
+
+      /******************************************************************************
+          MAIN CONTENT SECTION
+       ******************************************************************************/
+
+      div#content {
+      	margin: 7em auto 2em auto;
+      	width: 600px;
+      	font-size: 100%;
+      	background-color: #fff;
+      }
+
+      div#contentHead {
+      	margin: 0;
+      	padding: 0;
+      	text-align: center;
+      }
+
+      div#contentHead h2 {
+      	height: 10px;
+      	overflow: hidden;
+      	padding: 0;
+        margin: 0;
+      }
+
+      div#contentHead h2 span {
+        display: block;
+        margin: 30px;
+      }
+
+      div#contentBody {
+      	margin: 0;
+      	width: 600px;
+      }
+      
+      
+      /******************************************************************************
+          CONTENT AND CONTENT STRUCTURE
+       ******************************************************************************/
+
+      div.logo {
+        text-align: center;
+        padding: 20px 0 10px 0;
+        z-index: 2;
+        position: relative;
+      }
+
+      div.logo img {
+        margin: 10px;
+        border: none;
+      }
+
+      div.logo a {
+        background: none;
+      }
+      
+      div.section p {
+        text-align: justify;
+      }
+
+
+      /******************************************************************************
+          SECTIONS
+       ******************************************************************************/
+
+      div#mainContent {
+        overflow: hidden;
+        position: relative;
+      }
+
+      div.sections div.section {
+      	z-index: 1;
+      	position: relative;
+      	width: 560px;
+      	padding: 20px;
+      }
+
+      div.section p {
+        margin: 0 0 15px 0;
+      }
+
+      div.section h4 {
+        margin: 0 0 5px 0;
+        font-size: 1.3em;
+      }
+
+			.gist-meta {
+				display: none;
+			}
+
+		</style>
+  </head>
+  <body>
+    <div id="main">
+      <div id="content">
+        <div id="contentHead">
+          <h2><span>simple web Engineering</span></h2>
+        </div>
+        <div id="contentBody">
+          <div class="logo">
+            <a href="http://simplabs.com" title="simplabs.com - home"><img src="http://simplabs.com/images/header-logo.png" alt="Logo simplabs.com" title="Simplabs" /></a>
+            <div class="blocker">&nbsp;</div>
+          </div>
+          <div id="mainContent">
+            <div class="sections">
+              <div class="section">
+								<h3>Ruby source code to <strong>AST</strong></h3>
+								<p>
+									<a href="http://github.com/simplabs/melbourne" title="Melbiurne @ github">Melbourne</a> <strong>converts Ruby source code to an abstract sysntax tree (<a href="http://en.wikipedia.org/wiki/Abstract_syntax_tree" title="AST @ Wikipedia">AST</a>)</strong>. It is basically an extraction of the AST component of the <a href="http://rubini.us/" title="the Rubinius Ruby VM">Rubinius Ruby VM</a>.
+								</p>
+							</div>
+							<div class="section">
+								<h3>Example</h3>
+								<p>
+									Assume you have the following class definition,
+								</p>
+								<script src="http://gist.github.com/323640.js?file=test.rb"></script>
+								<p>
+									then the generated AST for this definition will be:
+								</p>
+								<script src="http://gist.github.com/323641.js?file=gistfile1.rb"></script>
+							</div>
+							<div class="section">
+								<h3>Installation</h3>
+								<p>
+									Melbourne is available as a gem:
+								</p>
+								<script src="http://gist.github.com/202345.js"></script>
+							</div>
+							<div class="section">
+								<h3>Get involved!</h3>
+								<p>
+									You can also <a href="http://github.com/simplabs/melbourne" title="Melbourne's repo @ github">fork Melbourne on github</a> (you might want to have a <a href="http://rdoc.info/projects/simplabs/melbourne" title="Melbourne's RDoc">look at the RDoc</a> then).
+								</p>
+							</div>
+							<div class="section">
+								<h3>Copyright/ Acknowledgement</h3>
+								<p>
+									The original code of Melbourne is part of the <a href="http://rubini.us/" title="the Rubinius Ruby VM">Rubinius project</a> and was written by and is &copy; <a href="http://github.com/evanphx/" title="Evan Phoenix @ github">Evan Phoenix</a>.
+								</p>
+								<p>
+									Melbourne was extracted from Rubinius into this gem by <a href="http://simplabs.com/" title="simplabs">Marco Otte-Witte</a>.
+								</p>
+							</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <h1><a href="http://github.com/simplabs/melbourne">melbourne</a>
-      <span class="small">by <a href="http://github.com/simplabs">simplabs</a></span></h1>
-
-    <div class="description">
-      Rubinius' melbourne parser extracted into a gem (without the actual Rubinius) - create ASTs for arbitrary Ruby code
-    </div>
-
-    <h2>Authors</h2>
-<p>Marco Otte-Witte (marco.otte-witte@simplabs.com)<br/><br/>      </p>
-<h2>Contact</h2>
-<p>simplabs (info@simplabs.com)<br/>      </p>
-
-
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/simplabs/melbourne/zipball/master">zip</a> or
-      <a href="http://github.com/simplabs/melbourne/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/simplabs/melbourne</pre>
-    </p>
-
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/simplabs/melbourne">simplabs/melbourne</a>
-    </div>
-
-  </div>
-
-  
-</body>
+  </body>
 </html>
