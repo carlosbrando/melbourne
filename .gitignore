@@ -1,0 +1,9 @@
+.DS_Store
+doc
+Makefile
+ext/melbourne/*.o
+ext/melbourne/*.bundle
+ext/melbourne/*.so
+lib/ext
+melbourne-*.gem
+tmp
