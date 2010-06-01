@@ -16,17 +16,17 @@ module Melbourne
       #
       attr_accessor :name
 
-      attr_accessor :privately #:nodoc:
+      attr_accessor :privately
 
       # The block that is passed to the invocation if one is passed
       #
       attr_accessor :block
 
-      attr_accessor :variable #:nodoc:
+      attr_accessor :variable
 
-      attr_accessor :check_for_local #:nodoc:
+      attr_accessor :check_for_local
 
-      def initialize(line, receiver, name, privately=false) #:nodoc:
+      def initialize(line, receiver, name, privately=false)
         @line = line
         @receiver = receiver
         @name = name
@@ -47,7 +47,7 @@ module Melbourne
       #
       attr_accessor :arguments
 
-      def initialize(line, receiver, name, arguments, privately=false) #:nodoc:
+      def initialize(line, receiver, name, arguments, privately=false)
         super line, receiver, name, privately
         @block = nil
         @arguments = ActualArguments.new line, arguments
@@ -61,7 +61,7 @@ module Melbourne
     #
     class AttributeAssignment < SendWithArguments
 
-      def initialize(line, receiver, name, arguments) #:nodoc:
+      def initialize(line, receiver, name, arguments)
         @line = line
 
         @receiver = receiver
@@ -80,7 +80,7 @@ module Melbourne
     #
     class ElementAssignment < SendWithArguments
 
-      def initialize(line, receiver, arguments) #:nodoc:
+      def initialize(line, receiver, arguments)
         @line = line
 
         @receiver = receiver
@@ -112,7 +112,7 @@ module Melbourne
       #
       attr_accessor :arguments
 
-      def initialize(line, arguments, value) #:nodoc:
+      def initialize(line, arguments, value)
         @line = line
         @arguments = arguments
         @value = value
@@ -128,7 +128,7 @@ module Melbourne
         splat? ? 1 : @arguments.size + 1
       end
 
-      # Gets whether the push arguments are a splat (<tt>*some</tt>)
+      # Gets whether the push arguments are a splat (+*some+)
       #
       # === Example:
       #
@@ -150,7 +150,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, body) #:nodoc:
+      def initialize(line, body)
         @line = line
         @body = body
       end
@@ -167,11 +167,11 @@ module Melbourne
       #
       attr_accessor :array
 
-      # A splat (<tt>*some</tt>) if the actual arguments contain one
+      # A splat (+*some+) if the actual arguments contain one
       #
       attr_accessor :splat
 
-      def initialize(line, arguments=nil) #:nodoc:
+      def initialize(line, arguments=nil)
         @line = line
         @splat = nil
 
@@ -231,7 +231,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, arguments, body) #:nodoc:
+      def initialize(line, arguments, body)
         @line = line
         @arguments = IterArguments.new line, arguments
         @body = body || Nil.new(line)
@@ -246,7 +246,7 @@ module Melbourne
     class IterArguments < Node
 
       # TODO: document!
-      attr_accessor :prelude #:nodoc:
+      attr_accessor :prelude
 
       # The number of arguments
       #
@@ -261,13 +261,13 @@ module Melbourne
       attr_accessor :arguments
 
       # TODO: document!
-      attr_accessor :splat_index #:nodoc:
+      attr_accessor :splat_index
 
       # The required arguments
       #
       attr_accessor :required_args
 
-      def initialize(line, arguments) #:nodoc:
+      def initialize(line, arguments)
         @line = line
         @optional = 0
 
@@ -328,7 +328,7 @@ module Melbourne
       alias_method :total_args, :required_args
 
       # TODO: document!
-      def names #:nodoc:
+      def names
         case @arguments
         when MAsgn
           if arguments = @arguments.left.body
@@ -371,7 +371,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
@@ -390,11 +390,11 @@ module Melbourne
       #
       attr_accessor :name
 
-      # A block that is passed to <tt>super()</tt> if one is passed
+      # A block that is passed to +super()+ if one is passed
       #
       attr_accessor :block
 
-      def initialize(line, arguments) #:nodoc:
+      def initialize(line, arguments)
         @line = line
         @block = nil
         @arguments = ActualArguments.new line, arguments
@@ -411,9 +411,9 @@ module Melbourne
     class Yield < SendWithArguments
 
       # TODO: document!
-      attr_accessor :flags #:nodoc:
+      attr_accessor :flags
 
-      def initialize(line, arguments, unwrap) #:nodoc:
+      def initialize(line, arguments, unwrap)
         @line = line
 
         if arguments.kind_of? ArrayLiteral and not unwrap
@@ -437,7 +437,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class ZSuper < Super #:nodoc:
+    class ZSuper < Super
 
       def initialize(line)
         @line = line

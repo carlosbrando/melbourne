@@ -12,7 +12,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, array) #:nodoc:
+      def initialize(line, array)
         @line = line
         @body = array
       end
@@ -53,7 +53,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, str) #:nodoc:
+      def initialize(line, str)
         @line = line
         @value = str.to_f
       end
@@ -70,7 +70,7 @@ module Melbourne
       #
       attr_accessor :array
 
-      def initialize(line, array) #:nodoc:
+      def initialize(line, array)
         @line = line
         @array = array
       end
@@ -87,7 +87,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, sym) #:nodoc:
+      def initialize(line, sym)
         @line = line
         @value = sym
       end
@@ -102,7 +102,7 @@ module Melbourne
 
     end
 
-    class NumberLiteral < Node #:nodoc:
+    class NumberLiteral < Node
 
       attr_accessor :value
 
@@ -119,7 +119,7 @@ module Melbourne
     #
     class FixnumLiteral < NumberLiteral
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
@@ -140,7 +140,7 @@ module Melbourne
       #
       attr_accessor :finish
 
-      def initialize(line, start, finish) #:nodoc:
+      def initialize(line, start, finish)
         @line = line
         @start = start
         @finish = finish
@@ -154,7 +154,7 @@ module Melbourne
     #
     class RangeExclude < Range
 
-      def initialize(line, start, finish) #:nodoc:
+      def initialize(line, start, finish)
         @line = line
         @start = start
         @finish = finish
@@ -176,7 +176,7 @@ module Melbourne
       #
       attr_accessor :options
 
-      def initialize(line, str, flags) #:nodoc:
+      def initialize(line, str, flags)
         @line = line
         @source = str
         @options = flags
@@ -194,7 +194,7 @@ module Melbourne
       #
       attr_accessor :string
 
-      def initialize(line, str) #:nodoc:
+      def initialize(line, str)
         @line = line
         @string = str
       end
@@ -211,9 +211,9 @@ module Melbourne
       #
       attr_accessor :array
 
-      attr_accessor :options #:nodoc:
+      attr_accessor :options
 
-      def initialize(line, str, array) #:nodoc:
+      def initialize(line, str, array)
         @line = line
         @string = str
         @array = array
@@ -243,7 +243,7 @@ module Melbourne
     #
     class DynamicRegex < DynamicString
 
-      def initialize(line, str, array, flags) #:nodoc:
+      def initialize(line, str, array, flags)
         super line, str, array
         @options = flags || 0
       end
@@ -251,7 +251,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class DynamicOnceRegex < DynamicRegex #:nodoc:
+    class DynamicOnceRegex < DynamicRegex
 
     end
 

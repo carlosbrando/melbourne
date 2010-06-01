@@ -7,3 +7,5 @@ ext/melbourne/*.so
 lib/ext
 melbourne-*.gem
 tmp
+.bundle
+.yardoc

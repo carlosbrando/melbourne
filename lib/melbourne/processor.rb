@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'ast')
+require 'melbourne/ast'
 
 module Melbourne
 

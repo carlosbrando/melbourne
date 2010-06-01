@@ -2,7 +2,7 @@ module Melbourne
 
   module AST
 
-    class Node #:nodoc:
+    class Node
 
       attr_accessor :line
 

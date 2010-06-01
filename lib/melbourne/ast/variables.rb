@@ -16,7 +16,7 @@ module Melbourne
       #
       attr_accessor :kind
 
-      def initialize(line, ref) #:nodoc:
+      def initialize(line, ref)
         @line = line
         @kind = ref
       end
@@ -33,14 +33,14 @@ module Melbourne
       #
       attr_accessor :which
 
-      def initialize(line, ref) #:nodoc:
+      def initialize(line, ref)
         @line = line
         @which = ref
       end
 
     end
 
-    class VariableAccess < Node #:nodoc:
+    class VariableAccess < Node
 
       attr_accessor :name
 
@@ -51,7 +51,7 @@ module Melbourne
 
     end
 
-    class VariableAssignment < Node #:nodoc:
+    class VariableAssignment < Node
 
       attr_accessor :name, :value
 
@@ -79,7 +79,7 @@ module Melbourne
 
     end
 
-    class CVarDeclare < ClassVariableAssignment #:nodoc:
+    class CVarDeclare < ClassVariableAssignment
 
     end
 
@@ -99,7 +99,7 @@ module Melbourne
 
     end
 
-    # Assignment to a splat (<tt>*some</tt>) as in:
+    # Assignment to a splat (+*some+) as in:
     #
     #   *c = *[1, 2]
     #
@@ -109,14 +109,14 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
 
     end
 
-    class SplatArray < SplatAssignment #:nodoc:
+    class SplatArray < SplatAssignment
 
       def initialize(line, value, size)
         @line = line
@@ -126,7 +126,7 @@ module Melbourne
 
     end
 
-    class SplatWrapped < SplatAssignment #:nodoc:
+    class SplatWrapped < SplatAssignment
 
     end
 
@@ -136,7 +136,7 @@ module Melbourne
     #
     class EmptySplat < Node
 
-      def initialize(line, size) #:nodoc:
+      def initialize(line, size)
         @line = line
         @size = size
       end
@@ -167,7 +167,7 @@ module Melbourne
 
       include LocalVariable
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
         @variable = nil
@@ -183,7 +183,7 @@ module Melbourne
 
       include LocalVariable
 
-      def initialize(line, name, value) #:nodoc:
+      def initialize(line, name, value)
         @line = line
         @name = name
         @value = value
@@ -207,12 +207,12 @@ module Melbourne
       attr_accessor :right
 
       # TODO: document!
-      attr_accessor :splat #:nodoc:
+      attr_accessor :splat
 
       # TODO: document!
-      attr_accessor :block #:nodoc:
+      attr_accessor :block
 
-      def initialize(line, left, right, splat) #:nodoc:
+      def initialize(line, left, right, splat)
         @line = line
         @left = left
         @right = right

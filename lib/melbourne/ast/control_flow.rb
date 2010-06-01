@@ -21,7 +21,7 @@ module Melbourne
       #
       attr_accessor :else
 
-      def initialize(line, whens, else_body) #:nodoc:
+      def initialize(line, whens, else_body)
         @line = line
         @whens = whens
         @else = else_body || Nil.new(line)
@@ -44,7 +44,7 @@ module Melbourne
       #
       attr_accessor :receiver
 
-      def initialize(line, receiver, whens, else_body) #:nodoc:
+      def initialize(line, receiver, whens, else_body)
         @line = line
         @receiver = receiver
         @whens = whens
@@ -76,11 +76,11 @@ module Melbourne
       #
       attr_accessor :single
 
-      # Any splat (<tt>*something</tt>) that is specified as a condition for the +when+ statement or +nil+ of no splat is specified
+      # Any splat (+*something+) that is specified as a condition for the +when+ statement or +nil+ of no splat is specified
       #
       attr_accessor :splat
 
-      def initialize(line, conditions, body) #:nodoc:
+      def initialize(line, conditions, body)
         @line = line
         @body = body || Nil.new(line)
         @splat = nil
@@ -110,7 +110,7 @@ module Melbourne
 
     end
 
-    # A splat (<tt>*something</tt>) inside a condition of a +when+ statement as in:
+    # A splat (+*something+) inside a condition of a +when+ statement as in:
     #
     #   case a
     #     when *c then
@@ -123,7 +123,7 @@ module Melbourne
       #
       attr_accessor :condition
 
-      def initialize(line, condition) #:nodoc:
+      def initialize(line, condition)
         @line = line
         @condition = condition
       end
@@ -136,7 +136,7 @@ module Melbourne
     #
     class Flip2 < Node
 
-      def initialize(line, start, finish) #:nodoc:
+      def initialize(line, start, finish)
         @line = line
         @start = start
         @finish = finish
@@ -150,7 +150,7 @@ module Melbourne
     #
     class Flip3 < Node
 
-      def initialize(line, start, finish) #:nodoc:
+      def initialize(line, start, finish)
         @line = line
         @start = start
         @finish = finish
@@ -176,7 +176,7 @@ module Melbourne
       #
       attr_accessor :else
 
-      def initialize(line, condition, body, else_body) #:nodoc:
+      def initialize(line, condition, body, else_body)
         @line = line
         @condition = condition
         @body = body || Nil.new(line)
@@ -203,7 +203,7 @@ module Melbourne
       #
       attr_accessor :check_first
 
-      def initialize(line, condition, body, check_first) #:nodoc:
+      def initialize(line, condition, body, check_first)
         @line = line
         @condition = condition
         @body = body || Nil.new(line)
@@ -230,7 +230,7 @@ module Melbourne
       #
       attr_accessor :pattern
 
-      def initialize(line, pattern, flags) #:nodoc:
+      def initialize(line, pattern, flags)
         @line = line
         @pattern = RegexLiteral.new line, pattern, flags
       end
@@ -251,7 +251,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, pattern, value) #:nodoc:
+      def initialize(line, pattern, value)
         @line = line
         @pattern = pattern
         @value = value
@@ -273,7 +273,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, pattern, value) #:nodoc:
+      def initialize(line, pattern, value)
         @line = line
         @pattern = pattern
         @value = value
@@ -297,7 +297,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, expr) #:nodoc:
+      def initialize(line, expr)
         @line = line
         @value = expr || Nil.new(line)
       end
@@ -313,7 +313,7 @@ module Melbourne
     #
     class Next < Break
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
@@ -332,7 +332,7 @@ module Melbourne
     #
     class Redo < Break
 
-      def initialize(line) #:nodoc:
+      def initialize(line)
         @line = line
       end
 
@@ -351,7 +351,7 @@ module Melbourne
     #
     class Retry < Break
 
-      def initialize(line) #:nodoc:
+      def initialize(line)
         @line = line
       end
 
@@ -369,7 +369,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, expr) #:nodoc:
+      def initialize(line, expr)
         @line = line
         @value = expr
         @splat = nil

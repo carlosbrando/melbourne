@@ -1,6 +1,9 @@
 module Melbourne
+
   module AST
+
     class AsciiGrapher
+
       def initialize(ast)
         @ast = ast
       end
@@ -70,6 +73,9 @@ module Melbourne
           graph_simple name, value.class, level
         end
       end
+
     end
+
   end
+
 end

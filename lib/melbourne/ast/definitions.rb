@@ -16,7 +16,7 @@ module Melbourne
       #
       attr_accessor :from
 
-      def initialize(line, to, from) #:nodoc:
+      def initialize(line, to, from)
         @line = line
         @to = to
         @from = from
@@ -25,7 +25,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class VAlias < Alias #:nodoc:
+    class VAlias < Alias
 
     end
 
@@ -39,7 +39,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, sym) #:nodoc:
+      def initialize(line, sym)
         @line = line
         @name = sym
       end
@@ -61,13 +61,13 @@ module Melbourne
       #
       attr_accessor :array
 
-      def initialize(line, array) #:nodoc:
+      def initialize(line, array)
         @line = line
         @array = array
       end
 
       # TODO: document!
-      def strip_arguments #:nodoc:
+      def strip_arguments
         if @array.first.kind_of? FormalArguments
           node = @array.shift
           if @array.first.kind_of? BlockArgument
@@ -80,7 +80,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class ClosedScope < Node #:nodoc:
+    class ClosedScope < Node
 
       attr_accessor :body
 
@@ -101,7 +101,7 @@ module Melbourne
       #
       attr_accessor :arguments
 
-      def initialize(line, name, block) #:nodoc:
+      def initialize(line, name, block)
         @line = line
         @name = name
         @arguments = block.strip_arguments
@@ -126,7 +126,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, receiver, name, block) #:nodoc:
+      def initialize(line, receiver, name, block)
         @line = line
         @receiver = receiver
         @body = DefineSingletonScope.new line, name, block
@@ -138,7 +138,7 @@ module Melbourne
     #
     class DefineSingletonScope < Define
 
-      def initialize(line, name, block) #:nodoc:
+      def initialize(line, name, block)
         super line, name, block
       end
 
@@ -167,7 +167,7 @@ module Melbourne
       #
       attr_accessor :defaults
 
-      # The splat (<tt>*some</tt>) arguments of the method
+      # The splat (+*some+) arguments of the method
       #
       attr_accessor :splat
 
@@ -175,7 +175,7 @@ module Melbourne
       #
       attr_accessor :block_arg
 
-      def initialize(line, args, defaults, splat) #:nodoc:
+      def initialize(line, args, defaults, splat)
         @line = line
         @defaults = nil
         @block_arg = nil
@@ -203,7 +203,7 @@ module Melbourne
         @splat = splat
       end
 
-      def block_arg=(node) #:nodoc:
+      def block_arg=(node)
         @names << node.name
         @block_arg = node
       end
@@ -232,7 +232,7 @@ module Melbourne
       end
 
       # TODO: document!
-      def splat_index #:nodoc:
+      def splat_index
         if @splat
           index = @names.size
           index -= 1 if @block_arg
@@ -255,7 +255,7 @@ module Melbourne
       #
       attr_accessor :names
 
-      def initialize(line, block) #:nodoc:
+      def initialize(line, block)
         @line = line
         array = block.array
         @names = array.map { |a| a.name }
@@ -264,7 +264,7 @@ module Melbourne
 
     end
 
-    module LocalVariable #:nodoc:
+    module LocalVariable
 
       attr_accessor :variable
 
@@ -283,7 +283,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
       end
@@ -308,7 +308,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, name, superclass, body) #:nodoc:
+      def initialize(line, name, superclass, body)
         @line = line
 
         @superclass = superclass ? superclass : Nil.new(line)
@@ -332,7 +332,7 @@ module Melbourne
     #
     class ClassScope < ClosedScope
 
-      def initialize(line, name, body) #:nodoc:
+      def initialize(line, name, body)
         @line = line
         @name = name.name
         @body = body
@@ -351,9 +351,9 @@ module Melbourne
       attr_accessor :name
 
       # TODO: document!
-      attr_accessor :superclass #:nodoc:
+      attr_accessor :superclass
 
-      def initialize(line, name, superclass) #:nodoc:
+      def initialize(line, name, superclass)
         @line = line
         @name = name
         @superclass = superclass
@@ -367,11 +367,11 @@ module Melbourne
     #
     class ScopedClassName < ClassName
 
-      # The parent of the scoped class name; for a class <tt>class X::Y; end</tt> the scoped class name is +Y+ and the parent is +X+
+      # The parent of the scoped class name; for a class +class X::Y; end+ the scoped class name is +Y+ and the parent is +X+
       #
       attr_accessor :parent
 
-      def initialize(line, parent, superclass) #:nodoc:
+      def initialize(line, parent, superclass)
         @line = line
         @name = parent.name
         @parent = parent.parent
@@ -394,7 +394,7 @@ module Melbourne
       #
       attr_accessor :body
 
-      def initialize(line, name, body) #:nodoc:
+      def initialize(line, name, body)
         @line = line
 
         if name.kind_of? Symbol
@@ -428,7 +428,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
       end
@@ -441,11 +441,11 @@ module Melbourne
     #
     class ScopedModuleName < ModuleName
 
-      # The parent of the scoped module name; for a module <tt>module X::M; end</tt> the scoped module name is +Y+ and the parent is +X+
+      # The parent of the scoped module name; for a module +module X::M; end+ the scoped module name is +Y+ and the parent is +X+
       #
       attr_accessor :parent
 
-      def initialize(line, parent) #:nodoc:
+      def initialize(line, parent)
         @line = line
         @name = parent.name
         @parent = parent.parent
@@ -457,7 +457,7 @@ module Melbourne
     #
     class ModuleScope < ClosedScope
 
-      def initialize(line, name, body) #:nodoc:
+      def initialize(line, name, body)
         @line = line
         @name = name.name
         @body = body
@@ -474,11 +474,11 @@ module Melbourne
     #
     class SClass < Node
 
-      # The receiver (for <tt>class << self</tt>, +self+ is the receiver)
+      # The receiver (for +class << self+, +self+ is the receiver)
       #
       attr_accessor :receiver
 
-      def initialize(line, receiver, body) #:nodoc:
+      def initialize(line, receiver, body)
         @line = line
         @receiver = receiver
         @body = SClassScope.new line, body
@@ -490,7 +490,7 @@ module Melbourne
     #
     class SClassScope < ClosedScope
 
-      def initialize(line, body) #:nodoc:
+      def initialize(line, body)
         @line = line
         @body = body
         @name = nil
@@ -499,7 +499,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class Container < ClosedScope #:nodoc:
+    class Container < ClosedScope
 
       attr_accessor :file, :name, :variable_scope
 
@@ -510,7 +510,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class EvalExpression < Container #:nodoc:
+    class EvalExpression < Container
 
       def initialize(body)
         super body
@@ -520,7 +520,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class Snippit < Container #:nodoc:
+    class Snippit < Container
 
       def initialize(body)
         super body
@@ -530,7 +530,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class Script < Container #:nodoc:
+    class Script < Container
 
       def initialize(body)
         super body
@@ -539,17 +539,17 @@ module Melbourne
 
     end
 
-    # A <tt>defined?</tt> statement as in:
+    # A +defined?+ statement as in:
     #
     #   defined? a
     #
     class Defined < Node
 
-      # The expression passed to <tt>defined?</tt>
+      # The expression passed to +defined?+
       #
       attr_accessor :expression
 
-      def initialize(line, expr) #:nodoc:
+      def initialize(line, expr)
         @line = line
         @expression = expr
       end

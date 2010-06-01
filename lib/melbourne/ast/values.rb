@@ -2,7 +2,7 @@ module Melbourne
 
   module AST
 
-    # A value of a splat (<tt>*some</tt>) as in:
+    # A value of a splat (+*some+) as in:
     #
     #   *1 # the value of the splat is 1
     #
@@ -12,7 +12,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
@@ -20,7 +20,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class ConcatArgs < Node #:nodoc:
+    class ConcatArgs < Node
 
       attr_accessor :array, :rest, :size
 
@@ -34,7 +34,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class SValue < Node #:nodoc:
+    class SValue < Node
 
       attr_accessor :value
 
@@ -46,7 +46,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class ToArray < Node #:nodoc:
+    class ToArray < Node
 
       attr_accessor :value
 
@@ -58,7 +58,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class ToString < Node #:nodoc:
+    class ToString < Node
 
       attr_accessor :value
 

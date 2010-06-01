@@ -16,7 +16,7 @@ module Melbourne
       #
       attr_accessor :rescue
 
-      def initialize(line, body) #:nodoc:
+      def initialize(line, body)
         @line = line
         @rescue = body
       end
@@ -45,7 +45,7 @@ module Melbourne
       #
       attr_accessor :ensure
 
-      def initialize(line, body, ensr) #:nodoc:
+      def initialize(line, body, ensr)
         @line = line
         @body = body || Nil.new(line)
         @ensure = ensr
@@ -77,7 +77,7 @@ module Melbourne
       #
       attr_accessor :else
 
-      def initialize(line, body, rescue_body, else_body) #:nodoc:
+      def initialize(line, body, rescue_body, else_body)
         @line = line
         @body = body
         @rescue = rescue_body
@@ -100,7 +100,7 @@ module Melbourne
       #
       attr_accessor :conditions
 
-      # Assignments in the rescue condition (e.g. <tt>RuntimeError => e</tt>, where +e+ is assigned)
+      # Assignments in the rescue condition (e.g. +RuntimeError => e+, where +e+ is assigned)
       #
       attr_accessor :assignment
 
@@ -109,12 +109,12 @@ module Melbourne
       attr_accessor :body
 
       # TODO: document!
-      attr_accessor :next #:nodoc:
+      attr_accessor :next
 
       # TODO: document!
-      attr_accessor :splat #:nodoc:
+      attr_accessor :splat
 
-      def initialize(line, conditions, body, nxt) #:nodoc:
+      def initialize(line, conditions, body, nxt)
         @line = line
         @next = nxt
         @splat = nil
@@ -150,7 +150,7 @@ module Melbourne
       end
 
       # TODO: document!
-      def assignment?(node) #:nodoc:
+      def assignment?(node)
         case node
         when VariableAssignment
           value = node.value
@@ -166,7 +166,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class RescueSplat < Node #:nodoc:
+    class RescueSplat < Node
 
       attr_accessor :value
 

@@ -1,6 +1,6 @@
 module Melbourne
 
-  class Parser #:nodoc:
+  class Parser
 
     def self.parse_string(string, name = '(eval)', line = 1)
       new(name, line).parse_string(string)

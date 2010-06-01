@@ -16,7 +16,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, parent, name) #:nodoc:
+      def initialize(line, parent, name)
         @line = line
         @parent = parent
         @name = name
@@ -38,7 +38,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
         @parent = TopLevel.new line
@@ -66,7 +66,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
       end
@@ -91,7 +91,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name, value) #:nodoc:
+      def initialize(line, name, value)
         @line = line
         @value = value
         @parent = nil
@@ -116,7 +116,7 @@ module Melbourne
       #
       attr_accessor :name
 
-      def initialize(line, name) #:nodoc:
+      def initialize(line, name)
         @line = line
         @name = name
       end

@@ -16,7 +16,7 @@ module Melbourne
       #
       attr_accessor :right
 
-      def initialize(line, left, right) #:nodoc:
+      def initialize(line, left, right)
         @line = line
         @left = left
         @right = right
@@ -42,7 +42,7 @@ module Melbourne
       #
       attr_accessor :value
 
-      def initialize(line, value) #:nodoc:
+      def initialize(line, value)
         @line = line
         @value = value
       end
@@ -50,7 +50,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class OpAssign1 < Node #:nodoc:
+    class OpAssign1 < Node
 
       attr_accessor :receiver
 
@@ -71,7 +71,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class OpAssign2 < Node #:nodoc:
+    class OpAssign2 < Node
 
       attr_accessor :receiver
 
@@ -95,7 +95,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class OpAssignAnd < Node #:nodoc:
+    class OpAssignAnd < Node
 
       attr_accessor :left, :right
 
@@ -108,7 +108,7 @@ module Melbourne
     end
 
     # TODO: document!
-    class OpAssignOr < OpAssignAnd #:nodoc:
+    class OpAssignOr < OpAssignAnd
 
     end
 

@@ -3,7 +3,7 @@ module Melbourne
   module AST
 
     # TODO: document!
-    class EndData < Node #:nodoc:
+    class EndData < Node
 
       attr_accessor :data
 
