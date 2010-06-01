@@ -17,6 +17,6 @@ Gem::Specification.new do |s|
   s.require_paths             = ['lib']
   s.rubygems_version          = %q{1.3.0}
   s.summary                   = %q{Rubinius' melbourne parser extracted into a gem (without the actual Rubinius)}
-  s.description               = %q{Malbourne makes it possible to generate abstract syntax trees (AST) from arbitrary Ruby source code by leveraging Rubinius' parser component (without the need to actually run Rubinius).}
+  s.description               = %q{Melbourne makes it possible to generate abstract syntax trees (AST) from arbitrary Ruby source code by leveraging Rubinius' parser component (without the need to actually run Rubinius).}
 
 end
