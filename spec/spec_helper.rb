@@ -1,7 +1,10 @@
-$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + "/../lib"))
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + '/../lib'))
 
 require 'rubygems'
-require 'spec'
+require 'bundler'
+
+Bundler.setup
+Bundler.require
 
 require 'lib/melbourne'
 
