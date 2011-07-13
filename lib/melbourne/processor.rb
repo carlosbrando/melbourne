@@ -8,6 +8,73 @@ module Melbourne
   class ParserError < Exception; end
 
   class Parser
+    attr_accessor :transforms
+    attr_accessor :magic_handler
+    
+    def self.parse_string(string, name="(eval)", line=1)
+      new(name, line).parse_string string
+    end
+
+    def self.parse_file(name, line=1)
+      new(name, line).parse_file
+    end
+
+    def initialize(name, line, transforms=[])
+      @name = name
+      @line = line
+      @transforms = transforms
+      @magic_handler = nil
+      @data_offset = nil
+
+      # There can be multiple reported, we need to track them all.
+      @syntax_errors = []
+    end
+
+    attr_reader :syntax_errors
+
+    def add_magic_comment(str)
+      if @magic_handler
+        @magic_handler.add_magic_comment str
+      end
+    end
+
+    def process_data(offset)
+      @data_offset = offset
+    end
+
+    def syntax_error
+      raise @syntax_errors[0] unless @syntax_errors.empty?
+    end
+
+    def parse_string(string)
+      syntax_error unless ast = string_to_ast(string, @name, @line)
+      ast
+    end
+
+    def parse_file
+      unless @name and File.exists? @name
+        raise Errno::ENOENT, @name.inspect
+      end
+
+      syntax_error unless ast = file_to_ast(@name, @line)
+      ast = AST::EndData.new @data_offset, ast if @data_offset
+      ast
+    end
+
+    def process_transforms(line, receiver, name, arguments, privately=false)
+      @transforms.each do |transform|
+        next unless transform.transform_kind == :call
+
+        if node = transform.match?(line, receiver, name, arguments, privately)
+          unless node.kind_of? AST::Node
+            node = transform.new line, receiver, name, arguments, privately
+          end
+          return node
+        end
+      end
+      nil
+    end
+    
     def process_parse_error(message, column, line, source)
       @exc = SyntaxError.from message, column, line, source, @name
     end
@@ -22,6 +89,11 @@ module Melbourne
     def process_missing_node(line, node_name, node_type)
       raise ParserError.new("Unhandled node #{node_name} (#{node_type})")
     end
+
+    # TODO: remove when all processors are defined
+    # def method_missing(sym, *args)
+    #   puts " *** missing #{sym} #{args.map { |x| x.inspect}.join(", ")}"
+    # end
 
     # Processing methods
 
@@ -88,6 +160,10 @@ module Melbourne
     end
 
     def process_call(line, receiver, name, arguments)
+      if node = process_transforms(line, receiver, name, arguments)
+        return node
+      end
+
       if arguments
         AST::SendWithArguments.new line, receiver, name, arguments
       else
@@ -104,7 +180,7 @@ module Melbourne
     end
 
     def process_cdecl(line, expr, value)
-      AST::ConstSet.new line, expr, value
+      AST::ConstantAssignment.new line, expr, value
     end
 
     def process_class(line, name, superclass, body)
@@ -113,18 +189,18 @@ module Melbourne
 
     def process_colon2(line, outer, name)
       if outer
-        AST::ConstAccess.new line, outer, name
+        AST::ScopedConstant.new line, outer, name
       else
-        AST::ConstFind.new line, name
+        AST::ConstantAccess.new line, name
       end
     end
 
     def process_colon3(line, name)
-      AST::ConstAtTop.new line, name
+      AST::ToplevelConstant.new line, name
     end
 
     def process_const(line, name)
-      AST::ConstFind.new line, name
+      AST::ConstantAccess.new line, name
     end
 
     def process_cvar(line, name)
@@ -136,11 +212,7 @@ module Melbourne
     end
 
     def process_cvdecl(line, name, value)
-      AST::ClassVariableAssignment.new line, name, value
-    end
-
-    def process_data(line, data)
-      AST::EndData.new line, data
+      AST::ClassVariableDeclaration.new line, name, value
     end
 
     def process_defined(line, expr)
@@ -196,11 +268,15 @@ module Melbourne
     end
 
     def process_false(line)
-      AST::False.new line
+      AST::FalseLiteral.new line
     end
 
     def process_fcall(line, name, arguments)
       receiver = AST::Self.new line
+
+      if node = process_transforms(line, receiver, name, arguments, true)
+        return node
+      end
 
       if arguments
         AST::SendWithArguments.new line, receiver, name, arguments, true
@@ -226,7 +302,7 @@ module Melbourne
     end
 
     def process_float(line, str)
-      AST::Float.new line, str
+      AST::FloatLiteral.new line, str
     end
 
     def process_for(line, iter, arguments, body)
@@ -240,7 +316,7 @@ module Melbourne
     end
 
     def process_gvar(line, name)
-      AST::GlobalVariableAccess.new line, name
+      AST::GlobalVariableAccess.for_name line, name
     end
 
     def process_hash(line, array)
@@ -277,7 +353,7 @@ module Melbourne
     end
 
     def process_masgn(line, left, right, splat)
-      AST::MAsgn.new line, left, right, splat
+      AST::MultipleAssignment.new line, left, right, splat
     end
 
     def process_match(line, pattern, flags)
@@ -305,7 +381,7 @@ module Melbourne
     end
 
     def process_nil(line)
-      AST::Nil.new line
+      AST::NilLiteral.new line
     end
 
     def process_not(line, value)
@@ -411,7 +487,7 @@ module Melbourne
     end
 
     def process_true(line)
-      AST::True.new line
+      AST::TrueLiteral.new line
     end
 
     def process_undef(line, sym)
@@ -425,7 +501,11 @@ module Melbourne
     def process_vcall(line, name)
       receiver = AST::Self.new line
 
-      AST::Send.new line, receiver, name, true
+      if node = process_transforms(line, receiver, name, nil, true)
+        return node
+      end
+
+      AST::Send.new line, receiver, name, true, true
     end
 
     def process_valias(line, to, from)

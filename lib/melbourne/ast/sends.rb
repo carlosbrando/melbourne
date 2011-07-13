@@ -1,50 +1,129 @@
 module Melbourne
-
   module AST
-
-    # A method invocation (a message being sent) as in:
-    #
-    #   method()
-    #
     class Send < Node
-
-      # The receiver of the message/ invocation
-      #
-      attr_accessor :receiver
-
-      # The message being sent/ method being invoked
-      #
-      attr_accessor :name
-
-      attr_accessor :privately
-
-      # The block that is passed to the invocation if one is passed
-      #
-      attr_accessor :block
-
-      attr_accessor :variable
-
+      attr_accessor :receiver, :name, :privately, :block, :variable
       attr_accessor :check_for_local
 
-      def initialize(line, receiver, name, privately=false)
+      def initialize(line, receiver, name, privately=false, vcall_style=false)
         @line = line
         @receiver = receiver
         @name = name
         @privately = privately
         @block = nil
         @check_for_local = false
+        @vcall_style = vcall_style
       end
 
+      def check_local_reference(g)
+        if @receiver.kind_of? Self and (@check_for_local or g.state.eval?)
+          reference = g.state.scope.search_local(@name)
+        end
+      end
+
+      def bytecode(g)
+        pos(g)
+
+        if @vcall_style and reference = check_local_reference(g)
+          return reference.get_bytecode(g)
+        end
+
+        @receiver.bytecode(g)
+
+        if @block
+          @block.bytecode(g)
+          g.send_with_block @name, 0, @privately
+        elsif @vcall_style
+          g.send_vcall @name
+        else
+          g.send @name, 0, @privately
+        end
+      end
+
+      def value_defined(g, f)
+        # Save the current exception into a stack local
+        g.push_exception_state
+        outer_exc_state = g.new_stack_local
+        g.set_stack_local outer_exc_state
+        g.pop
+
+        ok = g.new_label
+        ex = g.new_label
+        g.setup_unwind ex, RescueType
+
+        bytecode(g)
+
+        g.pop_unwind
+        g.goto ok
+
+        ex.set!
+        g.clear_exception
+        g.push_stack_local outer_exc_state
+        g.restore_exception_state
+        g.goto f
+
+        ok.set!
+      end
+
+      def defined(g)
+        if @vcall_style and check_local_reference(g)
+          g.push_literal "local-variable"
+          return
+        end
+
+        f = g.new_label
+        done = g.new_label
+
+        @receiver.value_defined(g, f)
+
+        g.push_literal @name
+
+        if @vcall_style
+          g.push :true
+          g.send :__respond_to_p__, 2
+        else
+          g.push_self
+          g.invoke_primitive :vm_check_callable, 3
+        end
+        g.gif f
+        g.push_literal "method"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def sexp_name
+        :call
+      end
+
+      def receiver_sexp
+        @privately ? nil : @receiver.to_sexp
+      end
+
+      def arguments_sexp
+        return nil if @vcall_style
+
+        sexp = [:arglist]
+        sexp << @block.to_sexp if @block.kind_of? BlockPass
+        sexp
+      end
+
+      def to_sexp
+        sexp = [sexp_name, receiver_sexp, @name, arguments_sexp]
+        case @block
+        when For
+          @block.to_sexp.insert 1, @receiver.to_sexp
+        when Iter
+          @block.to_sexp.insert 1, sexp
+        else
+          sexp
+        end
+      end
     end
 
-    # A method invocation (a message being sent) where arguments are passed as in:
-    #
-    #   method(a, b)
-    #
     class SendWithArguments < Send
-
-      # The arguments that are passed
-      #
       attr_accessor :arguments
 
       def initialize(line, receiver, name, arguments, privately=false)
@@ -53,14 +132,31 @@ module Melbourne
         @arguments = ActualArguments.new line, arguments
       end
 
+      def bytecode(g)
+        @receiver.bytecode(g)
+        @arguments.bytecode(g)
+
+        pos(g)
+
+        if @arguments.splat?
+          @block ? @block.bytecode(g) : g.push(:nil)
+          g.send_with_splat @name, @arguments.size, @privately, false
+        elsif @block
+          @block.bytecode(g)
+          g.send_with_block @name, @arguments.size, @privately
+        else
+          g.send @name, @arguments.size, @privately
+        end
+      end
+
+      def arguments_sexp(name=:arglist)
+        sexp = [name] + @arguments.to_sexp
+        sexp << @block.to_sexp if @block
+        sexp
+      end
     end
 
-    # An attribute assignment as in:
-    #
-    #   object.attribute = 1
-    #
     class AttributeAssignment < SendWithArguments
-
       def initialize(line, receiver, name, arguments)
         @line = line
 
@@ -72,14 +168,35 @@ module Melbourne
         @arguments = ActualArguments.new line, arguments
       end
 
+      def bytecode(g)
+        @receiver.bytecode(g)
+        if g.state.masgn?
+          g.swap
+          g.send @name, 1, @privately
+        else
+          @arguments.bytecode(g)
+          g.dup
+
+          if @arguments.splat?
+            g.move_down @arguments.size + 2
+            g.swap
+            g.push :nil
+            g.send_with_splat @name, @arguments.size, @privately, true
+          else
+            g.move_down @arguments.size + 1
+            g.send @name, @arguments.size, @privately
+          end
+
+          g.pop
+        end
+      end
+
+      def sexp_name
+        :attrasgn
+      end
     end
 
-    # An element assignment as in:
-    #
-    #   a[0] = 1
-    #
     class ElementAssignment < SendWithArguments
-
       def initialize(line, receiver, arguments)
         @line = line
 
@@ -96,21 +213,41 @@ module Melbourne
         end
       end
 
+      def masgn_bytecode(g)
+        @receiver.bytecode(g)
+        g.swap
+        @arguments.masgn_bytecode(g)
+        g.send @name, @arguments.size + 1, @privately
+        # TODO: splat
+      end
+
+      def bytecode(g)
+        return masgn_bytecode(g) if g.state.masgn?
+
+        @receiver.bytecode(g)
+        @arguments.bytecode(g)
+        g.dup
+
+        if @arguments.splat?
+          g.move_down @arguments.size + 2
+          g.swap
+          g.push :nil
+          g.send_with_splat @name, @arguments.size, @privately, true
+        else
+          g.move_down @arguments.size + 1
+          g.send @name, @arguments.size, @privately
+        end
+
+        g.pop
+      end
+
+      def sexp_name
+        :attrasgn
+      end
     end
 
-    # Arguments of element assignment as in:
-    #
-    #   a[0] = 1 # 1 is the push argument
-    #
     class PushArgs < Node
-
-      # The actual value of the argument
-      #
-      attr_accessor :value
-
-      # The arguments used to access the element the push argument is assigned to
-      #
-      attr_accessor :arguments
+      attr_accessor :arguments, :value
 
       def initialize(line, arguments, value)
         @line = line
@@ -118,36 +255,25 @@ module Melbourne
         @value = value
       end
 
-      # Gets the number of push arguments
-      #
-      # === Example:
-      #
-      #   a[0] = 1 # size is 1
-      #
       def size
         splat? ? 1 : @arguments.size + 1
       end
 
-      # Gets whether the push arguments are a splat (+*some+)
-      #
-      # === Example:
-      #
-      #   a[0] = *b # the push arguments are a splat here
-      #
       def splat?
-        @arguments.kind_of? SplatValue
+        @arguments.kind_of? SplatValue or @arguments.kind_of? ConcatArgs
       end
 
+      def bytecode(g)
+        @arguments.bytecode(g)
+        @value.bytecode(g)
+      end
+
+      def to_sexp
+        [@arguments.to_sexp, @value.to_sexp]
+      end
     end
 
-    # A block that is passed as a parameter as in:
-    #
-    #   method(&b)
-    #
     class BlockPass < Node
-
-      # The actual block that is passed
-      #
       attr_accessor :body
 
       def initialize(line, body)
@@ -155,21 +281,39 @@ module Melbourne
         @body = body
       end
 
+      def convert(g)
+        nil_block = g.new_label
+        g.dup
+        g.is_nil
+        g.git nil_block
+
+        g.push_cpath_top
+        g.find_const :Proc
+
+        g.swap
+        g.send :__from_block__, 1
+
+        nil_block.set!
+      end
+
+      def bytecode(g)
+        @body.bytecode(g)
+        convert(g)
+      end
+
+      def assignment_bytecode(g)
+        g.push_block_arg
+        convert(g)
+        @body.bytecode(g)
+      end
+
+      def to_sexp
+        [:block_pass, @body.to_sexp]
+      end
     end
 
-    # The actual arguments that are passed to a method as in:
-    #
-    #   method(1, b) # the actual arguments are a and b
-    #
     class ActualArguments < Node
-
-      # The array of arguments
-      #
-      attr_accessor :array
-
-      # A splat (+*some+) if the actual arguments contain one
-      #
-      attr_accessor :splat
+      attr_accessor :array, :splat
 
       def initialize(line, arguments=nil)
         @line = line
@@ -191,85 +335,152 @@ module Melbourne
         end
       end
 
-      # Gets the number of actual arguments.
-      #
-      # === Example
-      #
-      #   method(1, b) # the number of actual arguments is 2
-      #
       def size
         @array.size
       end
 
-      # Gets whether the actual arguments contain a splat.
-      #
-      # === Example
-      #
-      #   method(*b) # splat? is true
-      #
       def splat?
         not @splat.nil?
       end
 
+      def masgn_bytecode(g)
+        @array.each do |x|
+          x.bytecode(g)
+          g.swap
+        end
+        # TODO: splat
+      end
+
+      def bytecode(g)
+        @array.each { |x| x.bytecode(g) }
+        @splat.bytecode(g) if @splat
+      end
+
+      def to_sexp
+        sexp = @array.map { |x| x.to_sexp }
+        sexp << @splat.to_sexp if @splat
+        sexp
+      end
     end
 
-    # A code block as in:
-    #
-    #   m { some }
-    #
     class Iter < Node
+      # include Compiler::LocalVariables
 
-      # The parent node of the code block
-      #
-      attr_accessor :parent
-
-      # The arguments of the code block
-      #
-      attr_accessor :arguments
-
-      # The body of the code block
-      #
-      attr_accessor :body
+      attr_accessor :parent, :arguments, :body
 
       def initialize(line, arguments, body)
         @line = line
         @arguments = IterArguments.new line, arguments
-        @body = body || Nil.new(line)
+        @body = body || NilLiteral.new(line)
       end
 
+      def module?
+        false
+      end
+
+      def nest_scope(scope)
+        scope.parent = self
+      end
+
+      # A nested scope is looking up a local variable. If the variable exists
+      # in our local variables hash, return a nested reference to it. If it
+      # exists in an enclosing scope, increment the depth of the reference
+      # when it passes through this nested scope (i.e. the depth of a
+      # reference is a function of the nested scopes it passes through from
+      # the scope it is defined in to the scope it is used in).
+      def search_local(name)
+        if variable = variables[name]
+          variable.nested_reference
+        elsif reference = @parent.search_local(name)
+          reference.depth += 1
+          reference
+        end
+      end
+
+      def new_local(name)
+        variable = Compiler::LocalVariable.new allocate_slot
+        variables[name] = variable
+      end
+
+      def new_nested_local(name)
+        new_local(name).nested_reference
+      end
+
+      # If the local variable exists in this scope, set the local variable
+      # node attribute to a reference to the local variable. If the variable
+      # exists in an enclosing scope, set the local variable node attribute to
+      # a nested reference to the local variable. Otherwise, create a local
+      # variable in this scope and set the local variable node attribute.
+      def assign_local_reference(var)
+        if variable = variables[var.name]
+          var.variable = variable.reference
+        elsif reference = @parent.search_local(var.name)
+          reference.depth += 1
+          var.variable = reference
+        else
+          variable = new_local var.name
+          var.variable = variable.reference
+        end
+      end
+
+      def bytecode(g)
+        pos(g)
+
+        state = g.state
+        state.scope.nest_scope self
+
+        blk = new_block_generator g, @arguments
+
+        blk.push_state self
+        blk.state.push_super state.super
+        blk.state.push_eval state.eval
+
+        blk.state.push_name blk.name
+
+        # Push line info down.
+        pos(blk)
+
+        @arguments.bytecode(blk)
+
+        blk.state.push_block
+        blk.push_modifiers
+        blk.break = nil
+        blk.next = nil
+        blk.redo = blk.new_label
+        blk.redo.set!
+
+        @body.bytecode(blk)
+
+        blk.pop_modifiers
+        blk.state.pop_block
+        blk.ret
+        blk.close
+        blk.pop_state
+
+        blk.splat_index = @arguments.splat_index
+        blk.local_count = local_count
+        blk.local_names = local_names
+
+        g.create_block blk
+      end
+
+      def sexp_name
+        :iter
+      end
+
+      def to_sexp
+        [sexp_name, @arguments.to_sexp, @body.to_sexp]
+      end
     end
 
-    # Arguments of a code block as in:
-    #
-    #   m { |arg| some }
-    #
     class IterArguments < Node
-
-      # TODO: document!
-      attr_accessor :prelude
-
-      # The number of arguments
-      #
-      attr_accessor :arity
-
-      # The optional arguments
-      #
-      attr_accessor :optional
-
-      # The actual array of arguments
-      #
-      attr_accessor :arguments
-
-      # TODO: document!
-      attr_accessor :splat_index
-
-      # The required arguments
-      #
+      attr_accessor :prelude, :arity, :optional, :arguments, :splat_index
       attr_accessor :required_args
 
       def initialize(line, arguments)
         @line = line
         @optional = 0
+        @arguments = nil
 
         @splat_index = -1
         @required_args = 0
@@ -279,9 +490,10 @@ module Melbourne
         array = []
         case arguments
         when Fixnum
+          @splat_index = nil
           @arity = 0
           @prelude = nil
-        when MAsgn
+        when MultipleAssignment
           arguments.iter_arguments
 
           if arguments.splat
@@ -297,10 +509,12 @@ module Melbourne
               @arity = -1
             end
           elsif arguments.left
+            @splat_index = nil
             @prelude = :multi
             @arity = arguments.left.body.size
             @required_args = arguments.left.body.size
           else
+            @splat_index = 0
             @prelude = :multi
             @arity = -1
           end
@@ -318,6 +532,7 @@ module Melbourne
           @prelude = nil
           @block = arguments
         else # Assignment
+          @splat_index = nil
           @arguments = arguments
           @arity = 1
           @required_args = 1
@@ -327,10 +542,9 @@ module Melbourne
 
       alias_method :total_args, :required_args
 
-      # TODO: document!
       def names
         case @arguments
-        when MAsgn
+        when MultipleAssignment
           if arguments = @arguments.left.body
             array = arguments.map { |x| x.name }
           else
@@ -349,26 +563,87 @@ module Melbourne
         end
       end
 
+      def arguments_bytecode(g, is_array=false)
+        g.state.push_masgn
+
+        if @arguments.kind_of? MultipleAssignment
+          @arguments.bytecode(g, is_array)
+        else
+          @arguments.bytecode(g) if @arguments
+        end
+
+        g.state.pop_masgn
+
+        if @splat
+          @splat_index = @splat.variable.slot
+        end
+      end
+
+      def bytecode(g)
+        case @prelude
+        when :single
+          g.cast_for_single_block_arg
+          arguments_bytecode(g)
+          g.pop
+        when :multi
+          g.cast_for_multi_block_arg
+          arguments_bytecode(g, true)
+          g.pop
+        when :splat
+          g.cast_for_splat_block_arg
+          g.cast_array
+          arguments_bytecode(g)
+          g.pop
+        end
+
+        if @block
+          @block.assignment_bytecode(g)
+        end
+      end
+
+      def to_sexp
+        if @arguments
+          @arguments.to_sexp
+        elsif @arity == 0
+          0
+        else
+          nil
+        end
+      end
     end
 
-    # A +for+ statement as in:
-    #
-    #   for o in ary do
-    #     puts(o)
-    #   end
-    #
     class For < Iter
+      def nest_scope(scope)
+        scope.parent = self
+      end
 
+      def search_local(name)
+        if reference = @parent.search_local(name)
+          reference.depth += 1
+          reference
+        end
+      end
+
+      def new_nested_local(name)
+        reference = @parent.new_nested_local name
+        reference.depth += 1
+        reference
+      end
+
+      def assign_local_reference(var)
+        unless reference = search_local(var.name)
+          reference = new_nested_local var.name
+        end
+
+        var.variable = reference
+      end
+
+      def sexp_name
+        :for
+      end
     end
 
-    # A negation as in:
-    #
-    #   -1
-    #
     class Negate < Node
-
-      # The value that is negated
-      #
       attr_accessor :value
 
       def initialize(line, value)
@@ -376,41 +651,80 @@ module Melbourne
         @value = value
       end
 
+      def bytecode(g)
+        pos(g)
+
+        if @value.kind_of? NumberLiteral
+          g.push(-@value.value)
+        else
+          @value.bytecode(g)
+          g.send :"-@", 0
+        end
+      end
+
+      def to_sexp
+        [:negate, @value.to_sexp]
+      end
     end
 
-    # A +super+ statement as in:
-    #
-    #   def method
-    #     super
-    #   end
-    #
     class Super < SendWithArguments
-
-      # The name of the node
-      #
-      attr_accessor :name
-
-      # A block that is passed to +super()+ if one is passed
-      #
-      attr_accessor :block
+      attr_accessor :name, :block
 
       def initialize(line, arguments)
         @line = line
         @block = nil
+        @name = nil
         @arguments = ActualArguments.new line, arguments
       end
 
+      def block_bytecode(g)
+        if @block
+          @block.bytecode(g)
+        else
+          g.push_block
+        end
+      end
+
+      def bytecode(g)
+        pos(g)
+
+        @name = g.state.super.name if g.state.super?
+
+        @arguments.bytecode(g)
+
+        block_bytecode(g)
+
+        if @arguments.splat?
+          g.send_super @name, @arguments.size, true
+        else
+          g.send_super @name, @arguments.size
+        end
+      end
+
+      def defined(g)
+        nope = g.new_label
+        done = g.new_label
+
+        g.invoke_primitive :vm_check_super_callable, 0
+
+        g.gif nope
+
+        g.push_literal "super"
+        g.string_dup
+        g.goto done
+
+        nope.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        arguments_sexp :super
+      end
     end
 
-    # A +yield+ statement as in:
-    #
-    #   def method(&block)
-    #     yield 1
-    #   end
-    #
     class Yield < SendWithArguments
-
-      # TODO: document!
       attr_accessor :flags
 
       def initialize(line, arguments, unwrap)
@@ -434,18 +748,57 @@ module Melbourne
         end
       end
 
+      def bytecode(g)
+        pos(g)
+
+        @arguments.bytecode(g)
+
+        if @yield_splat
+          g.yield_splat @argument_count
+        else
+          g.yield_stack @argument_count
+        end
+      end
+
+      def defined(g)
+        t = g.new_label
+        f = g.new_label
+
+        g.push_block
+        g.git t
+        g.push :nil
+        g.goto f
+
+        t.set!
+        g.push_literal "yield"
+
+        f.set!
+      end
+
+      def to_sexp
+        arguments_sexp :yield
+      end
     end
 
-    # TODO: document!
     class ZSuper < Super
-
       def initialize(line)
         @line = line
         @block = nil
       end
 
+      def bytecode(g)
+        pos(g)
+
+        @name = g.state.super.name if g.state.super?
+
+        block_bytecode(g)
+
+        g.zsuper @name
+      end
+
+      def to_sexp
+        [:zsuper]
+      end
     end
-
   end
-
 end

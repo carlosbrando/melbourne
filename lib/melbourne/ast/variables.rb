@@ -1,19 +1,6 @@
 module Melbourne
-
   module AST
-
-    # A back reference as in:
-    #
-    #   $&
-    #
-    # or
-    #
-    #   $'
-    #
     class BackRef < Node
-
-      # The kind of back reference
-      #
       attr_accessor :kind
 
       def initialize(line, ref)
@@ -21,16 +8,55 @@ module Melbourne
         @kind = ref
       end
 
+      Kinds = {
+        :~ => 0,
+        :& => 1,
+        :"`" => 2,
+        :"'" => 3,
+        :+ => 4
+      }
+
+      def mode
+        unless mode = Kinds[@kind]
+          raise "Unknown backref: #{@kind}"
+        end
+
+        mode
+      end
+
+      def bytecode(g)
+        pos(g)
+        g.last_match mode, 0
+      end
+
+      def defined(g)
+        if @kind == :~
+          g.push_literal "global-variable"
+          return
+        end
+
+        f = g.new_label
+        done = g.new_label
+
+        g.last_match mode, 0
+        g.is_nil
+        g.git f
+
+        g.push_literal "$#{@kind}"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        [:back_ref, @kind]
+      end
     end
 
-    # A reference to the nth match in a regular expression match result as in:
-    #
-    #   $1
-    #
     class NthRef < Node
-
-      # The number of the match that is referenced
-      #
       attr_accessor :which
 
       def initialize(line, ref)
@@ -38,10 +64,39 @@ module Melbourne
         @which = ref
       end
 
+      Mode = 5
+
+      def bytecode(g)
+        pos(g)
+
+        # These are for $1, $2, etc. We subtract 1 because
+        # we start numbering the captures from 0.
+        g.last_match Mode, @which - 1
+      end
+
+      def defined(g)
+        f = g.new_label
+        done = g.new_label
+
+        g.last_match Mode, @which - 1
+        g.is_nil
+        g.git f
+
+        g.push_literal "$#{@which}"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        [:nth_ref, @which]
+      end
     end
 
     class VariableAccess < Node
-
       attr_accessor :name
 
       def initialize(line, name)
@@ -49,10 +104,13 @@ module Melbourne
         @name = name
       end
 
+      def value_defined(g, f)
+        variable_defined(g, f)
+        bytecode(g)
+      end
     end
 
     class VariableAssignment < Node
-
       attr_accessor :name, :value
 
       def initialize(line, name, value)
@@ -61,52 +119,227 @@ module Melbourne
         @value = value
       end
 
+      def defined(g)
+        g.push_literal "assignment"
+      end
+
+      def to_sexp
+        sexp = [sexp_name, @name]
+        sexp << @value.to_sexp if @value
+        sexp
+      end
     end
 
-    # Access of a class variable as in:
-    #
-    #   puts @@var
-    #
     class ClassVariableAccess < VariableAccess
+      def or_bytecode(g)
+        pos(g)
 
+        done =     g.new_label
+        notfound = g.new_label
+
+        variable_defined(g, notfound)
+
+        # Ok, we know the value exists, get it.
+        bytecode(g)
+        g.dup
+        g.git done
+        g.pop
+
+        # yield to generate the code for when it's not found
+        notfound.set!
+        yield
+
+        done.set!
+      end
+
+      def bytecode(g)
+        pos(g)
+
+        push_scope(g)
+        g.send :class_variable_get, 1
+      end
+
+      def push_scope(g)
+        if g.state.scope.module?
+          g.push :self
+        else
+          g.push_scope
+        end
+        g.push_literal @name
+      end
+
+      def variable_defined(g, f)
+        push_scope(g)
+        g.send :class_variable_defined?, 1
+        g.gif f
+      end
+
+      def defined(g)
+        f = g.new_label
+        done = g.new_label
+
+        variable_defined(g, f)
+        g.push_literal "class variable"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        [:cvar, @name]
+      end
     end
 
-    # An assignment to a class variable as in:
-    #
-    #   @@var = 1
-    #
     class ClassVariableAssignment < VariableAssignment
+      def bytecode(g)
+        pos(g)
 
+        if g.state.scope.module?
+          g.push :self
+        else
+          g.push_scope
+        end
+
+        if @value
+          g.push_literal @name
+          @value.bytecode(g)
+        else
+          g.swap
+          g.push_literal @name
+          g.swap
+        end
+
+        pos(g)
+        g.send :class_variable_set, 2
+      end
+
+      def sexp_name
+        :cvasgn
+      end
     end
 
-    class CVarDeclare < ClassVariableAssignment
-
+    class ClassVariableDeclaration < ClassVariableAssignment
+      def sexp_name
+        :cvdecl
+      end
     end
 
-    # Access of a global variable as in:
-    #
-    #   $stderr
-    #
+    class CurrentException < Node
+      def bytecode(g)
+        pos(g)
+        g.push_current_exception
+      end
+
+      def defined(g)
+        g.push_literal "global-variable"
+      end
+
+      def to_sexp
+        [:gvar, :$!]
+      end
+    end
+
     class GlobalVariableAccess < VariableAccess
+      EnglishBackrefs = {
+        :$LAST_MATCH_INFO => :~,
+        :$MATCH => :&,
+        :$PREMATCH => :'`',
+        :$POSTMATCH => :"'",
+        :$LAST_PAREN_MATCH => :+,
+      }
 
+      def self.for_name(line, name)
+        case name
+        when :$!
+          CurrentException.new(line)
+        when :$~
+          BackRef.new(line, :~)
+        else
+          if backref = EnglishBackrefs[name]
+            BackRef.new(line, backref)
+          else
+            new(line, name)
+          end
+        end
+      end
+
+      def bytecode(g)
+        pos(g)
+
+        g.push_rubinius
+        g.find_const :Globals
+        g.push_literal @name
+        g.send :[], 1
+      end
+
+      def variable_defined(g, f)
+        g.push_rubinius
+        g.find_const :Globals
+        g.push_literal @name
+        g.send :key?, 1
+        g.gif f
+      end
+
+      def defined(g)
+        f = g.new_label
+        done = g.new_label
+
+        variable_defined(g, f)
+        g.push_literal "global-variable"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        [:gvar, @name]
+      end
     end
 
-    # Assignment to a global variable as in:
-    #
-    #   $x = 1
-    #
     class GlobalVariableAssignment < VariableAssignment
+      def bytecode(g)
+        # @value can be nil if this is coming via an masgn, which means
+        # the value is already on the stack.
+        if @name == :$!
+          @value.bytecode(g) if @value
+          pos(g)
+          g.raise_exc
+        elsif @name == :$~
+          pos(g)
+          # this is a noop for now, but we need to run the
+          # value anyway because it might have side-effects
+          @value.bytecode(g) if @value
+          g.pop
+          g.push :nil
+        else
+          pos(g)
+          g.push_rubinius
+          g.find_const :Globals
+          if @value
+            g.push_literal @name
+            @value.bytecode(g)
+          else
+            g.swap
+            g.push_literal @name
+            g.swap
+          end
+          pos(g)
+          g.send :[]=, 2
+        end
+      end
 
+      def sexp_name
+        :gasgn
+      end
     end
 
-    # Assignment to a splat (+*some+) as in:
-    #
-    #   *c = *[1, 2]
-    #
     class SplatAssignment < Node
-
-      # The value being assigned to the splat
-      #
       attr_accessor :value
 
       def initialize(line, value)
@@ -114,57 +347,124 @@ module Melbourne
         @value = value
       end
 
+      def bytecode(g)
+        pos(g)
+
+        g.cast_array
+        @value.bytecode(g)
+      end
+
+      def to_sexp
+        [:splat_assign, @value.to_sexp]
+      end
     end
 
     class SplatArray < SplatAssignment
-
       def initialize(line, value, size)
         @line = line
         @value = value
         @size = size
       end
 
+      def bytecode(g)
+        pos(g)
+
+        g.make_array @size
+        @value.bytecode(g)
+      end
+
+      def to_sexp
+        [:splat, @value.to_sexp]
+      end
     end
 
     class SplatWrapped < SplatAssignment
+      def bytecode(g)
+        pos(g)
 
+        assign = g.new_label
+
+        g.dup
+        g.push_cpath_top
+        g.find_const :Array
+        g.swap
+        g.kind_of
+        g.git assign
+        g.make_array 1
+
+        assign.set!
+        @value.bytecode(g)
+      end
+
+      def to_sexp
+        [:splat, @value.to_sexp]
+      end
     end
 
-    # An empty splat as in:
-    #
-    #   * = 1, 2
-    #
     class EmptySplat < Node
-
       def initialize(line, size)
         @line = line
         @size = size
       end
 
+      def bytecode(g)
+        pos(g)
+
+        g.make_array @size
+      end
+
+      def to_sexp
+        [:splat]
+      end
     end
 
-    # Access of an instance variable as in:
-    #
-    #   puts @var
-    #
     class InstanceVariableAccess < VariableAccess
+      def bytecode(g)
+        pos(g)
 
+        g.push_ivar @name
+      end
+
+      def variable_defined(g, f)
+        g.push :self
+        g.push_literal @name
+        g.send :__instance_variable_defined_p__, 1
+        g.gif f
+      end
+
+      def defined(g)
+        f = g.new_label
+        done = g.new_label
+
+        variable_defined(g, f)
+        g.push_literal "instance-variable"
+        g.goto done
+
+        f.set!
+        g.push :nil
+
+        done.set!
+      end
+
+      def to_sexp
+        [:ivar, @name]
+      end
     end
 
-    # An assignment to an instance variable as in:
-    #
-    #   @var = 1
-    #
     class InstanceVariableAssignment < VariableAssignment
+      def bytecode(g)
+        @value.bytecode(g) if @value
 
+        pos(g)
+        g.set_ivar @name
+      end
+
+      def sexp_name
+        :iasgn
+      end
     end
 
-    # Access of a local variable as in:
-    #
-    #   puts var
-    #
     class LocalVariableAccess < VariableAccess
-
       include LocalVariable
 
       def initialize(line, name)
@@ -173,14 +473,29 @@ module Melbourne
         @variable = nil
       end
 
+      def bytecode(g)
+        pos(g)
+
+        unless @variable
+          g.state.scope.assign_local_reference self
+        end
+        @variable.get_bytecode(g)
+      end
+
+      def defined(g)
+        g.push_literal "local-variable"
+      end
+
+      def value_defined(g, f)
+        bytecode(g)
+      end
+
+      def to_sexp
+        [:lvar, @name]
+      end
     end
 
-    # An assignment to an instance variable as in:
-    #
-    #   var = 1
-    #
     class LocalVariableAssignment < VariableAssignment
-
       include LocalVariable
 
       def initialize(line, name, value)
@@ -190,27 +505,29 @@ module Melbourne
         @variable = nil
       end
 
+      def bytecode(g)
+        unless @variable
+          g.state.scope.assign_local_reference self
+        end
+
+        if @value
+          @value.bytecode(g)
+        end
+
+        # Set the position after the value, so the position
+        # reflects where the assignment itself is done
+        pos(g)
+
+        @variable.set_bytecode(g)
+      end
+
+      def sexp_name
+        :lasgn
+      end
     end
 
-    # An assignment of multiple values as in:
-    #
-    #   a, b = 1, 2
-    #
-    class MAsgn < Node
-
-      # The left side of the assignment
-      #
-      attr_accessor :left
-
-      # The right side of the assignment
-      #
-      attr_accessor :right
-
-      # TODO: document!
-      attr_accessor :splat
-
-      # TODO: document!
-      attr_accessor :block
+    class MultipleAssignment < Node
+      attr_accessor :left, :right, :splat, :block
 
       def initialize(line, left, right, splat)
         @line = line
@@ -240,12 +557,129 @@ module Melbourne
         end
       end
 
+      def pad_short(g)
+        short = @left.body.size - @right.body.size
+        if short > 0
+          short.times { g.push :nil }
+          g.make_array 0 if @splat
+        end
+      end
+
+      def pop_excess(g)
+        excess = @right.body.size - @left.body.size
+        excess.times { g.pop } if excess > 0
+      end
+
+      def make_array(g)
+        size = @right.body.size - @left.body.size
+        g.make_array size if size >= 0
+      end
+
+      def rotate(g)
+        if @splat
+          size = @left.body.size + 1
+        else
+          size = @right.body.size
+        end
+        g.rotate size
+      end
+
       def iter_arguments
         @iter_arguments = true
       end
 
+      def declare_local_scope(g)
+        # Fix the scope for locals introduced by the left. We
+        # do this before running the code for the right so that
+        # right side sees the proper scoping of the locals on the left.
+
+        if @left
+          @left.body.each do |var|
+            case var
+            when LocalVariable
+              g.state.scope.assign_local_reference var
+            when MultipleAssignment
+              var.declare_local_scope(g)
+            end
+          end
+        end
+
+        if @splat and @splat.kind_of?(SplatAssignment)
+          if @splat.value.kind_of?(LocalVariable)
+            g.state.scope.assign_local_reference @splat.value
+          end
+        end
+      end
+
+      def bytecode(g, array_on_stack=false)
+        unless array_on_stack
+          g.cast_array unless @right or (@splat and not @left)
+        end
+
+        declare_local_scope(g)
+
+        if @fixed
+          pad_short(g) if @left and !@splat
+          @right.body.each { |x| x.bytecode(g) }
+          pad_short(g) if @left and @splat
+
+          if @left
+            make_array(g) if @splat
+            rotate(g)
+
+            g.state.push_masgn
+            @left.body.each do |x|
+              x.bytecode(g)
+              g.pop
+            end
+            g.state.pop_masgn
+
+            pop_excess(g) unless @splat
+          end
+        else
+          if @right
+            @right.bytecode(g)
+
+            g.cast_array unless @right.kind_of? ToArray
+          end
+
+          if @left
+            g.state.push_masgn
+            @left.body.each do |x|
+              g.shift_array
+              g.cast_array if x.kind_of? MultipleAssignment and x.left
+              x.bytecode(g)
+              g.pop
+            end
+            g.state.pop_masgn
+          end
+        end
+
+        if @splat
+          g.state.push_masgn
+          @splat.bytecode(g)
+          g.state.pop_masgn
+        end
+
+        if @right
+          g.pop if !@fixed or @splat
+          g.push :true
+        end
+      end
+
+      def defined(g)
+        g.push_literal "assignment"
+      end
+
+      def to_sexp
+        left = @left ? @left.to_sexp : [:array]
+        left << [:splat, @splat.to_sexp] if @splat
+        left << @block.to_sexp if @block
+
+        sexp = [:masgn, left]
+        sexp << @right.to_sexp if @right
+        sexp
+      end
     end
-
   end
-
 end

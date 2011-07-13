@@ -1,0 +1,41 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    bluecloth (2.1.0)
+    diff-lcs (1.1.2)
+    excellent (1.5.4)
+      facets (>= 2.7)
+      ruby_parser (>= 2.0)
+      sexp_processor (>= 3.0)
+    facets (2.9.1)
+    rake (0.9.2)
+    rake-compiler (0.7.8)
+      rake
+    rcov (0.9.9)
+    rspec (2.6.0)
+      rspec-core (~> 2.6.0)
+      rspec-expectations (~> 2.6.0)
+      rspec-mocks (~> 2.6.0)
+    rspec-core (2.6.4)
+    rspec-expectations (2.6.0)
+      diff-lcs (~> 1.1.2)
+    rspec-mocks (2.6.0)
+    ruby_parser (2.0.6)
+      sexp_processor (~> 3.0)
+    sexp_processor (3.0.5)
+    yard (0.7.2)
+    yard-rspec (0.1)
+      yard
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bluecloth (>= 2.0.5)
+  excellent (>= 1.5.4)
+  rake (>= 0.8.7)
+  rake-compiler (>= 0.7.0)
+  rcov (>= 0.8.1)
+  rspec (>= 1.2.0)
+  yard (>= 0.4.0)
+  yard-rspec (>= 0.1.0)
